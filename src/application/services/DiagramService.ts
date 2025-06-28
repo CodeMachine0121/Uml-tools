@@ -1,13 +1,14 @@
 import  { v4 as uuidv4 } from 'uuid';
-import type { DiagramUseCases } from '../../domain/usecases/DiagramUseCases';
-import type { UmlDiagram, MermaidExport } from '../../domain/entities/UmlDiagram';
-import type { Position, Size, UmlElement, UmlElementType, UmlArrow, UmlText } from '../../domain/entities/UmlElement';
-import type { DiagramRepository } from '../../infrastructure/repositories/DiagramRepository';
+import type { DiagramUseCases } from '@/domain/usecases/DiagramUseCases.ts';
+import type { UmlDiagram, MermaidExport } from '@/domain/entities/UmlDiagram.ts';
+import type { Position, Size, UmlElement, UmlArrow, UmlText } from '@/domain/entities/UmlElement.ts';
+import { UmlElementType } from '@/domain/entities/UmlElement.ts';
+import type { DiagramRepository } from '@/infrastructure/repositories/DiagramRepository.ts';
 
 export class DiagramService implements DiagramUseCases {
   constructor(private repository: DiagramRepository) {}
 
-  async createDiagram(name: string): Promise<UmlDiagram> {
+  createDiagram = async (name: string): Promise<UmlDiagram> => {
     const newDiagram: UmlDiagram = {
       id: uuidv4(),
       name,
@@ -16,9 +17,9 @@ export class DiagramService implements DiagramUseCases {
       updatedAt: new Date()
     };
     return this.repository.save(newDiagram);
-  }
+  };
 
-  async addElement(diagramId: string, type: UmlElementType, position: Position, size?: Size, text?: string): Promise<UmlElement> {
+  addElement = async (diagramId: string, type: UmlElementType, position: Position, size?: Size, text?: string): Promise<UmlElement> => {
     const diagram = await this.repository.findById(diagramId);
     if (!diagram) {
       throw new Error(`Diagram with id ${diagramId} not found`);
@@ -36,9 +37,9 @@ export class DiagramService implements DiagramUseCases {
     diagram.elements.push(newElement);
     await this.repository.save(diagram);
     return newElement;
-  }
+  };
 
-  async updateElement(diagramId: string, elementId: string, updates: Partial<UmlElement>): Promise<UmlElement> {
+  updateElement = async (diagramId: string, elementId: string, updates: Partial<UmlElement>): Promise<UmlElement> => {
     const diagram = await this.repository.findById(diagramId);
     if (!diagram) {
       throw new Error(`Diagram with id ${diagramId} not found`);
@@ -49,15 +50,17 @@ export class DiagramService implements DiagramUseCases {
       throw new Error(`Element with id ${elementId} not found in diagram ${diagramId}`);
     }
 
-    const updatedElement = {
-      ...diagram.elements[elementIndex],
-      ...updates
-    };
+    var currentElement: UmlElement= diagram.elements[elementIndex] as UmlElement;
 
-    diagram.elements[elementIndex] = updatedElement;
+    if (updates.type) currentElement.type = updates.type;
+    if ('size' in updates) currentElement.size = updates.size;
+    if ('text' in updates) currentElement.text = updates.text;
+    if (updates.properties) currentElement.properties = updates.properties;
+
     await this.repository.save(diagram);
-    return updatedElement;
-  }
+
+    return currentElement;
+  };
 
   async removeElement(diagramId: string, elementId: string): Promise<void> {
     const diagram = await this.repository.findById(diagramId);
@@ -140,7 +143,7 @@ export class DiagramService implements DiagramUseCases {
         const target = diagram.elements.find(e => e.id === arrow.target);
 
         if (source?.text && target?.text) {
-          let relationSymbol = '';
+          let relationSymbol: string;
 
           switch (arrow.type) {
             case UmlElementType.INHERITANCE_ARROW:
@@ -197,7 +200,7 @@ export class DiagramService implements DiagramUseCases {
     }
 
     // Basic parsing of relationships
-    const relationRegex = /(\w+)\s+(--|>|..|>|..>|-->)\s+(\w+)/g;
+    const relationRegex = /(\w+)\s+(--|..|>|..>|-->)\s+(\w+)/g;
 
     while ((match = relationRegex.exec(code)) !== null) {
       const sourceName = match[1];
