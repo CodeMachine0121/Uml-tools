@@ -6,6 +6,7 @@
 3. 須符合 clean archetecture, clean code
 
 ## User Story
+### 2025/06/29 Project Construct
 - 畫面的左邊會有個 toolbox,  使用者應該要能夠從裡面選取 對應的東西（如介面, 類別, 依賴箭頭, 實做箭頭... 等等）出來繪製
 - 選取完畢後使用者要可以透過滑鼠拉選的方始開始繪製
 - 使用者可以按兩下滑鼠 來新增 text input 
