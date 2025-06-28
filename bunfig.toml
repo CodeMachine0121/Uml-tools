@@ -1,0 +1,4 @@
+preload = ["./node_modules/svelte"]
+
+[macros]
+svelte = true
