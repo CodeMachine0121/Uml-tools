@@ -3,6 +3,7 @@
   import { UmlElementType } from '../../domain/entities/UmlElement';
   
   const dispatch = createEventDispatcher<{
+    // Send a custom event named select when a tool is selected
     select: UmlElementType;
   }>();
   
