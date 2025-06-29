@@ -16,6 +16,7 @@
     { type: UmlElementType.IMPLEMENTATION_ARROW, label: 'Implementation', icon: '⇢' },
     { type: UmlElementType.INHERITANCE_ARROW, label: 'Inheritance', icon: '↗' },
     { type: UmlElementType.ASSOCIATION_ARROW, label: 'Association', icon: '↔' },
+    { type: UmlElementType.Cursor, label: 'Cursor', icon: '🖱️' },
     { type: UmlElementType.TEXT, label: 'Text', icon: 'T' }
   ];
   
@@ -79,7 +80,7 @@
   .tool-button:hover {
     background-color: #e9e9e9;
   }
-  
+
   .tool-button.selected {
     background-color: #e0f7fa;
     border-color: #80deea;

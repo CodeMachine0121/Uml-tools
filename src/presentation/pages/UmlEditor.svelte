@@ -34,7 +34,7 @@
     await diagramService.addElement(currentDiagram.id, type, position, size);
     
     // Refresh the diagram
-    currentDiagram = await diagramService.repository.findById(currentDiagram.id) as UmlDiagram;
+    currentDiagram = await diagramService.findById(currentDiagram.id) as UmlDiagram;
   }
 
   async function handleTextAdd(event: CustomEvent<{ position: { x: number, y: number }, text: string }>) {
@@ -44,7 +44,7 @@
     await diagramService.addTextElement(currentDiagram.id, position, text);
     
     // Refresh the diagram
-    currentDiagram = await diagramService.repository.findById(currentDiagram.id) as UmlDiagram;
+    currentDiagram = await diagramService.findById(currentDiagram.id) as UmlDiagram;
   }
 
   async function handleElementConnect(event: CustomEvent<{ sourceId: string, targetId: string, type: UmlElementType }>) {
@@ -54,7 +54,7 @@
     await diagramService.connectElements(currentDiagram.id, sourceId, targetId, type);
     
     // Refresh the diagram
-    currentDiagram = await diagramService.repository.findById(currentDiagram.id) as UmlDiagram;
+    currentDiagram = await diagramService.findById(currentDiagram.id) as UmlDiagram;
   }
 
   async function handleElementUpdate(event: CustomEvent<{ elementId: string, updates: Partial<UmlElement> }>) {
@@ -64,7 +64,7 @@
     await diagramService.updateElement(currentDiagram.id, elementId, updates);
     
     // Refresh the diagram
-    currentDiagram = await diagramService.repository.findById(currentDiagram.id) as UmlDiagram;
+    currentDiagram = await diagramService.findById(currentDiagram.id) as UmlDiagram;
   }
 
   async function handleElementRemove(event: CustomEvent<{ elementId: string }>) {
@@ -74,7 +74,7 @@
     await diagramService.removeElement(currentDiagram.id, elementId);
     
     // Refresh the diagram
-    currentDiagram = await diagramService.repository.findById(currentDiagram.id) as UmlDiagram;
+    currentDiagram = await diagramService.findById(currentDiagram.id) as UmlDiagram;
   }
 
   async function exportToMermaid() {

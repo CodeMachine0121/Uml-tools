@@ -1,7 +1,14 @@
 <script lang="ts">
-  import { createEventDispatcher, onMount } from 'svelte';
-  import type { UmlDiagram } from '../../domain/entities/UmlDiagram';
-  import { UmlElementType, type UmlElement, type UmlNode, type UmlArrow, type UmlText, type Position } from '../../domain/entities/UmlElement';
+  import {createEventDispatcher} from 'svelte';
+  import type {UmlDiagram} from '../../domain/entities/UmlDiagram';
+  import {
+    type Position,
+    type UmlArrow,
+    type UmlElement,
+    UmlElementType,
+    type UmlNode,
+    type UmlText
+  } from '../../domain/entities/UmlElement';
 
   export let diagram: UmlDiagram | undefined = undefined;
   export let selectedTool: UmlElementType | null = null;
@@ -82,7 +89,11 @@
       if (selectedTool && isArrowType(selectedTool)) {
         connectionSource = element;
       }
-    } else if (selectedTool) {
+      // 如果选择了 Cursor 工具，设置为可拖动
+      else if (selectedTool === UmlElementType.Cursor || selectedTool === null) {
+        // 只需选中元素，拖动将在 mousemove 中处理
+      }
+    } else if (selectedTool && selectedTool !== UmlElementType.Cursor) {
       // Start drawing a new element
       isDrawing = true;
       startPosition = position;
@@ -148,14 +159,20 @@
       return;
     }
 
-    // Dragging an element
-    if (selectedElement && !connectionSource && !isResizing) {
+    // Dragging an element (当选择了 Cursor 工具或者未选择工具时)
+    if (selectedElement && !connectionSource && !isResizing && 
+        (selectedTool === UmlElementType.Cursor || selectedTool === null)) {
+
+      // 确保元素不会被拖出画布
+      const newX = Math.max(0, position.x - dragOffset.x);
+      const newY = Math.max(0, position.y - dragOffset.y);
+
       dispatch('elementUpdate', {
         elementId: selectedElement.id,
         updates: {
           position: {
-            x: position.x - dragOffset.x,
-            y: position.y - dragOffset.y
+            x: newX,
+            y: newY
           }
         }
       });
@@ -342,6 +359,34 @@
     }
   }
 
+  function handleSingleClick(event: MouseEvent) {
+    if (!diagram) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const position = {
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top
+    };
+
+    // 检查是否点击了已存在的元素
+    const element = findElementAtPosition(position);
+
+    // 如果选择了 Cursor 工具或者没有选择工具，允许选择和拖动元素
+    if (selectedTool === UmlElementType.Cursor || selectedTool === null) {
+      if (element) {
+        // 选择元素并准备拖动
+        selectedElement = element;
+        dragOffset = {
+          x: position.x - element.position.x,
+          y: position.y - element.position.y
+        };
+      } else {
+        // 点击空白区域，取消选择
+        selectedElement = null;
+      }
+    }
+  }
+
   function findElementAtPosition(position: Position): UmlElement | null {
     if (!diagram) return null;
 
@@ -396,11 +441,13 @@
     return element.type === UmlElementType.TEXT;
   }
 
-  $: canvasCursor = selectedTool
-    ? isArrowType(selectedTool)
-      ? connectionSource ? 'crosshair' : 'default'
-      : 'crosshair'
-    : 'default';
+      $: canvasCursor = selectedTool === UmlElementType.Cursor
+    ? 'default'
+    : selectedTool
+      ? isArrowType(selectedTool)
+        ? connectionSource ? 'crosshair' : 'default'
+        : 'crosshair'
+      : 'default';
 
   function getArrowPath(arrow: UmlArrow): string {
     if (!diagram) return '';
@@ -547,6 +594,7 @@
   on:mousemove={handleMouseMove}
   on:mouseup={handleMouseUp}
   on:dblclick={handleDoubleClick}
+  on:click={handleSingleClick}
   on:keydown={handleKeyDown}
   tabindex="0"
   style="cursor: {canvasCursor};"
@@ -718,6 +766,8 @@
     flex-direction: column;
     overflow: hidden;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    cursor: move; /* 添加移动光标提示 */
+    user-select: none; /* 防止文本选择 */
   }
 
   .uml-class {
@@ -758,6 +808,9 @@
     background-color: transparent;
     font-family: sans-serif;
     cursor: move;
+    user-select: none; /* 防止文本选择 */
+    min-width: 20px;
+    min-height: 20px;
   }
 
   .connection-point {

@@ -19,6 +19,10 @@ export class DiagramService implements DiagramUseCases {
     return this.repository.save(newDiagram);
   };
 
+  findById = async (id: string): Promise<UmlDiagram | null> => {
+    return await this.repository.findById(id) as UmlDiagram;
+  }
+
   addElement = async (diagramId: string, type: UmlElementType, position: Position, size?: Size, text?: string): Promise<UmlElement> => {
     const diagram = await this.repository.findById(diagramId);
     if (!diagram) {

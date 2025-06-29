@@ -5,7 +5,8 @@ export enum UmlElementType {
   IMPLEMENTATION_ARROW = 'implementation',
   INHERITANCE_ARROW = 'inheritance',
   ASSOCIATION_ARROW = 'association',
-  TEXT = 'text'
+  TEXT = 'text',
+  Cursor = 'cursor',
 }
 
 export interface Position {
