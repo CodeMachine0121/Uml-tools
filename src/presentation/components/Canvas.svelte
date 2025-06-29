@@ -9,6 +9,7 @@
     type UmlNode,
     type UmlText
   } from '@/domain/entities/UmlElement.ts';
+  import TextInputDialog from './TextInputDialog.svelte';
 
   export let diagram: UmlDiagram | undefined = undefined;
   export let selectedTool: UmlElementType | null = null;
@@ -31,6 +32,12 @@
   // Track connection point information
   let connectionSourcePoint: string | null = null;
   let isResizing = false;
+
+  // 文本输入对话框状态
+  let showTextInput = false;
+  let textInputPosition: Position = { x: 0, y: 0 };
+  let textInputInitialValue = '';
+  let textInputCallback: ((text: string) => void) | null = null;
 
   function handleMouseDown(event: MouseEvent) {
     if (!diagram) return;
@@ -98,13 +105,15 @@
       isDrawing = true;
       startPosition = position;
 
-      // If it's a text element, prompt for text input
+      // If it's a text element, show text input dialog
       if (selectedTool === UmlElementType.TEXT) {
         isDrawing = false;
-        const text = prompt('Enter text:');
-        if (text) {
+        showTextInput = true;
+        textInputPosition = position;
+        textInputInitialValue = '';
+        textInputCallback = (text) => {
           dispatch('textAdd', { position, text });
-        }
+        };
       }
     } else {
       // Clicking on empty canvas, deselect everything
@@ -393,19 +402,26 @@
 
     if (element) {
       // Edit text of existing element
-      const newText = prompt('Edit text:', element.text || '');
-      if (newText !== null) {
+      showTextInput = true;
+      textInputPosition = {
+        x: Math.max(0, position.x - 100), // 偏移以确保输入框居中
+        y: position.y
+      };
+      textInputInitialValue = element.text || '';
+      textInputCallback = (newText) => {
         dispatch('elementUpdate', {
           elementId: element.id,
           updates: { text: newText }
         });
-      }
+      };
     } else {
       // Add new text element
-      const text = prompt('Enter text:');
-      if (text) {
+      showTextInput = true;
+      textInputPosition = position;
+      textInputInitialValue = '';
+      textInputCallback = (text) => {
         dispatch('textAdd', { position, text });
-      }
+      };
     }
   }
 
@@ -818,6 +834,22 @@
     {/each}
   {/if}
 </div>
+
+{#if showTextInput}
+  <TextInputDialog
+    position={textInputPosition}
+    initialText={textInputInitialValue}
+    on:submit={({ detail }) => {
+      if (textInputCallback) textInputCallback(detail.text);
+      showTextInput = false;
+      textInputCallback = null;
+    }}
+    on:cancel={() => {
+      showTextInput = false;
+      textInputCallback = null;
+    }}
+  />
+{/if}
 
 <style>
   .canvas {
