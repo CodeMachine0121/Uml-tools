@@ -39,6 +39,11 @@
   let textInputInitialValue = '';
   let textInputCallback: ((text: string) => void) | null = null;
 
+  // 框选相关状态
+  let isSelecting = false;
+  let selectionBox = { x: 0, y: 0, width: 0, height: 0 };
+  let selectedElements: UmlElement[] = [];
+
   function handleMouseDown(event: MouseEvent) {
     if (!diagram) return;
 
@@ -98,7 +103,22 @@
       }
       // 如果选择了 Cursor 工具，设置为可拖动
       else if (selectedTool === UmlElementType.Cursor || selectedTool === null) {
-        // 只需选中元素，拖动将在 mousemove 中处理
+        // 检查是否按住了Shift键进行多选
+        if (event.shiftKey) {
+          // 添加到已选中元素组，或从中移除
+          const elementIndex = selectedElements.findIndex(e => e.id === element.id);
+          if (elementIndex >= 0) {
+            // 如果已经选中了，则从选中列表中移除
+            selectedElements = selectedElements.filter(e => e.id !== element.id);
+          } else {
+            // 否则添加到选中列表
+            selectedElements = [...selectedElements, element];
+          }
+        } else if (!selectedElements.some(e => e.id === element.id)) {
+          // 如果没有按Shift并且当前元素不在选中列表中，则清空选中列表并仅选中当前元素
+          selectedElements = [];
+          // 只需选中元素，拖动将在 mousemove 中处理
+        }
       }
     } else if (selectedTool && selectedTool !== UmlElementType.Cursor) {
       // Start drawing a new element
@@ -116,7 +136,20 @@
         };
       }
     } else {
-      // Clicking on empty canvas, deselect everything
+      // 点击空白区域，如果是选择工具，则开始框选
+      if (selectedTool === UmlElementType.Cursor || selectedTool === null) {
+        // 开始框选
+        isSelecting = true;
+        startPosition = position;
+        selectionBox = { x: position.x, y: position.y, width: 0, height: 0 };
+
+        // 如果没有按住Shift键，则清空之前的选择
+        if (!event.shiftKey) {
+          selectedElements = [];
+        }
+      }
+
+      // 取消单个元素选择
       selectedElement = null;
     }
   }
@@ -204,6 +237,18 @@
       return;
     }
 
+    // 处理框选操作
+    if (isSelecting && startPosition && (selectedTool === UmlElementType.Cursor || selectedTool === null)) {
+      // 更新选择框的尺寸
+      selectionBox = {
+        x: Math.min(startPosition.x, position.x),
+        y: Math.min(startPosition.y, position.y),
+        width: Math.abs(position.x - startPosition.x),
+        height: Math.abs(position.y - startPosition.y)
+      };
+      return;
+    }
+
     // 只有在鼠标按下并且有选中元素时才能拖拽
     // 如果鼠标移动超过阈值距离，开始拖拽
     if (selectedElement && !connectionSource && !isResizing && 
@@ -217,9 +262,29 @@
         const newX = Math.max(0, position.x - dragOffset.x);
         const newY = Math.max(0, position.y - dragOffset.y);
 
-        // 使用 console.log 调试
-        console.log('拖拽元素:', selectedElement.id, '到位置:', newX, newY);
+        // 如果是在已选中元素组中的元素，则移动所有选中的元素
+        if (selectedElements.some(e => e.id === selectedElement.id)) {
+          // 计算移动的偏移量
+          const deltaX = newX - selectedElement.position.x;
+          const deltaY = newY - selectedElement.position.y;
 
+          // 移动所有选中的元素
+          selectedElements.forEach(element => {
+            if (element.id !== selectedElement.id) { // 跳过正在拖动的元素，因为它稍后会单独处理
+              dispatch('elementUpdate', {
+                elementId: element.id,
+                updates: {
+                  position: {
+                    x: Math.max(0, element.position.x + deltaX),
+                    y: Math.max(0, element.position.y + deltaY)
+                  }
+                }
+              });
+            }
+          });
+        }
+
+        // 移动当前拖动的元素
         dispatch('elementUpdate', {
           elementId: selectedElement.id,
           updates: {
@@ -315,6 +380,60 @@
       isResizing = false;
       startPosition = null;
       // Keep selectedElement selected
+    }
+    // 完成框选
+    else if (isSelecting && startPosition) {
+      isSelecting = false;
+
+      // 如果选择框太小，可能是意外点击，不执行选择操作
+      if (selectionBox.width > 5 && selectionBox.height > 5) {
+        // 找出框选范围内的所有元素
+        const elementsInBox = diagram.elements.filter(element => {
+          // 对于节点元素
+          if (isNodeElement(element)) {
+            return (
+              element.position.x < selectionBox.x + selectionBox.width &&
+              element.position.x + element.size.width > selectionBox.x &&
+              element.position.y < selectionBox.y + selectionBox.height &&
+              element.position.y + element.size.height > selectionBox.y
+            );
+          }
+          // 对于文本元素
+          else if (isTextElement(element)) {
+            const text = element.text || '';
+            const textWidth = text.length * 8; // 估计每个字符8像素宽
+            const textHeight = 20; // 估计高度
+
+            return (
+              element.position.x < selectionBox.x + selectionBox.width &&
+              element.position.x + Math.max(textWidth, 50) > selectionBox.x &&
+              element.position.y < selectionBox.y + selectionBox.height &&
+              element.position.y + textHeight > selectionBox.y
+            );
+          }
+          // 对于箭头暂不处理
+          return false;
+        });
+
+        // 将框选的元素添加到已选中元素列表
+        if (elementsInBox.length > 0) {
+          // 如果按住了Shift键，则添加到现有选择中，否则替换现有选择
+          if (event.shiftKey) {
+            // 添加未选中的元素
+            for (const element of elementsInBox) {
+              if (!selectedElements.some(e => e.id === element.id)) {
+                selectedElements = [...selectedElements, element];
+              }
+            }
+          } else {
+            selectedElements = elementsInBox;
+          }
+        }
+      }
+
+      // 重置选择框
+      selectionBox = { x: 0, y: 0, width: 0, height: 0 };
+      startPosition = null;
     }
     // Finish drawing a new element
     else if (isDrawing && startPosition && selectedTool && !isArrowType(selectedTool)) {
@@ -649,9 +768,28 @@
     if (!diagram) return;
 
     // Delete key (Delete or Backspace)
-    if ((event.key === 'Delete' || event.key === 'Backspace') && selectedElement) {
-      dispatch('elementRemove', { elementId: selectedElement.id });
+    if (event.key === 'Delete' || event.key === 'Backspace') {
+      // 如果有选中的单个元素
+      if (selectedElement) {
+        dispatch('elementRemove', { elementId: selectedElement.id });
+        selectedElement = null;
+        event.preventDefault();
+      }
+      // 如果有选中的多个元素
+      else if (selectedElements.length > 0) {
+        // 批量删除所有选中的元素
+        for (const element of selectedElements) {
+          dispatch('elementRemove', { elementId: element.id });
+        }
+        selectedElements = [];
+        event.preventDefault();
+      }
+    }
+
+    // 按Escape键取消选择
+    if (event.key === 'Escape') {
       selectedElement = null;
+      selectedElements = [];
       event.preventDefault();
     }
   }
@@ -670,6 +808,21 @@
   style="cursor: {canvasCursor};"
 >
   <svg width="100%" height="100%" class="arrow-layer">
+    <!-- 选择框 -->
+    {#if isSelecting && selectionBox.width > 0 && selectionBox.height > 0}
+      <rect
+        x={selectionBox.x}
+        y={selectionBox.y}
+        width={selectionBox.width}
+        height={selectionBox.height}
+        fill="rgba(65, 105, 225, 0.1)"
+        stroke="royalblue"
+        stroke-width="1"
+        stroke-dasharray="5,5"
+        pointer-events="none"
+      />
+    {/if}
+
     <!-- Arrow markers -->
     <defs>
       <marker
@@ -758,7 +911,7 @@
           class="uml-node"
           class:uml-class={element.type === UmlElementType.CLASS}
           class:uml-interface={element.type === UmlElementType.INTERFACE}
-          class:selected={selectedElement === element}
+          class:selected={selectedElement === element || selectedElements.some(sel => sel.id === element.id)}
           data-element-id={element.id}
           on:mousedown={(e) => {
             if (selectedTool === UmlElementType.Cursor || selectedTool === null) {
@@ -807,6 +960,7 @@
       {:else if isTextElement(element)}
         <div
           class="uml-text"
+          class:selected={selectedElement === element || selectedElements.some(sel => sel.id === element.id)}
           data-element-id={element.id}
           on:mousedown={(e) => {
             if (selectedTool === UmlElementType.Cursor || selectedTool === null) {
@@ -997,5 +1151,11 @@
 
   .uml-node.selected {
     outline: 2px solid #2196F3;
+  }
+
+  .uml-text.selected {
+    outline: 2px solid #2196F3;
+    background-color: rgba(33, 150, 243, 0.1);
+    border-radius: 2px;
   }
 </style>
