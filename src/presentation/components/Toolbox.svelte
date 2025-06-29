@@ -16,7 +16,7 @@
     { type: UmlElementType.IMPLEMENTATION_ARROW, label: 'Implementation', icon: '⇢' },
     { type: UmlElementType.INHERITANCE_ARROW, label: 'Inheritance', icon: '↗' },
     { type: UmlElementType.ASSOCIATION_ARROW, label: 'Association', icon: '↔' },
-    { type: UmlElementType.Cursor, label: 'Cursor', icon: '🖱️' },
+    { type: UmlElementType.Cursor, label: 'Cursor', icon: '👆' },
     { type: UmlElementType.TEXT, label: 'Text', icon: 'T' }
   ];
   

@@ -57,6 +57,13 @@ export class DiagramService implements DiagramUseCases {
     var currentElement: UmlElement= diagram.elements[elementIndex] as UmlElement;
 
     if (updates.type) currentElement.type = updates.type;
+    if ('position' in updates && updates.position) {
+      // 确保位置更新被正确应用
+      currentElement.position = { 
+        x: updates.position.x, 
+        y: updates.position.y 
+      };
+    }
     if ('size' in updates) currentElement.size = updates.size;
     if ('text' in updates) currentElement.text = updates.text;
     if (updates.properties) currentElement.properties = updates.properties;

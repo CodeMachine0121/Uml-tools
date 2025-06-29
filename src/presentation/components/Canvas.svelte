@@ -116,11 +116,45 @@
   function findElementIdByDomElement(domElement: Element): string | null {
     if (!diagram) return null;
 
-    for (const element of diagram.elements) {
-      if (isNodeElement(element)) {
-        const elementDiv = document.querySelector(`.uml-node[style*="left: ${element.position.x}px"][style*="top: ${element.position.y}px"]`);
-        if (elementDiv === domElement) {
-          return element.id;
+    // 首先尝试从数据属性获取ID
+    const elementId = domElement.getAttribute('data-element-id');
+    if (elementId) {
+      return elementId;
+    }
+
+    // 如果没有数据属性，回退到老方法
+    // 获取所有节点元素
+    const nodeElements = diagram.elements.filter(isNodeElement);
+
+    // 查找DOM元素的数据属性或内容来匹配
+    for (const node of nodeElements) {
+      // 获取所有可能匹配的节点
+      const possibleMatches = Array.from(document.querySelectorAll('.uml-node'));
+
+      // 在所有可能的匹配中找到正确的元素
+      for (const match of possibleMatches) {
+        if (match === domElement) {
+          // 尝试通过元素内容匹配 - 查找节点名称
+          const nameElement = match.querySelector('.node-name');
+          if (nameElement && nameElement.textContent === (node.text || 'Unnamed')) {
+            return node.id;
+          }
+
+          // 如果不能通过内容匹配，尝试通过位置匹配
+          const style = match.getAttribute('style');
+          if (style) {
+            const leftMatch = style.match(/left:\s*(\d+)px/);
+            const topMatch = style.match(/top:\s*(\d+)px/);
+
+            if (leftMatch && topMatch) {
+              const left = parseInt(leftMatch[1]);
+              const top = parseInt(topMatch[1]);
+
+              if (Math.abs(left - node.position.x) < 5 && Math.abs(top - node.position.y) < 5) {
+                return node.id;
+              }
+            }
+          }
         }
       }
     }
@@ -131,7 +165,9 @@
   let tempArrowPath: string | null = null;
   let tempArrowType: UmlElementType | null = null;
 
-  function handleMouseMove(event: MouseEvent) {
+      let isDragging = false;
+
+      function handleMouseMove(event: MouseEvent) {
     if (!diagram) return;
 
     const rect = canvas.getBoundingClientRect();
@@ -159,23 +195,32 @@
       return;
     }
 
-    // Dragging an element (当选择了 Cursor 工具或者未选择工具时)
+    // 只有在鼠标按下并且有选中元素时才能拖拽
+    // 如果鼠标移动超过阈值距离，开始拖拽
     if (selectedElement && !connectionSource && !isResizing && 
         (selectedTool === UmlElementType.Cursor || selectedTool === null)) {
 
-      // 确保元素不会被拖出画布
-      const newX = Math.max(0, position.x - dragOffset.x);
-      const newY = Math.max(0, position.y - dragOffset.y);
+      // 确保有按下鼠标按钮（对应 event.buttons === 1）
+      if (event.buttons === 1) {
+        isDragging = true;
 
-      dispatch('elementUpdate', {
-        elementId: selectedElement.id,
-        updates: {
-          position: {
-            x: newX,
-            y: newY
+        // 确保元素不会被拖出画布
+        const newX = Math.max(0, position.x - dragOffset.x);
+        const newY = Math.max(0, position.y - dragOffset.y);
+
+        // 使用 console.log 调试
+        console.log('拖拽元素:', selectedElement.id, '到位置:', newX, newY);
+
+        dispatch('elementUpdate', {
+          elementId: selectedElement.id,
+          updates: {
+            position: {
+              x: newX,
+              y: newY
+            }
           }
-        }
-      });
+        });
+      }
     }
 
     // Drawing a new element
@@ -251,8 +296,13 @@
       y: event.clientY - rect.top
     };
 
+    // 结束拖拽
+    if (isDragging) {
+      isDragging = false;
+      // 保持元素选中状态
+    }
     // Finish resizing
-    if (isResizing) {
+    else if (isResizing) {
       isResizing = false;
       startPosition = null;
       // Keep selectedElement selected
@@ -404,13 +454,17 @@
           return element;
         }
       } else if (element.type === UmlElementType.TEXT) {
-        // Simplified hit testing for text elements
-        const textSize = 20; // Approximate size
+        // 改进的文本元素命中测试
+        // 获取文本实际长度的估计值
+        const text = element.text || '';
+        const textWidth = text.length * 8; // 估计每个字符8像素宽
+        const textHeight = 20; // 估计高度
+
         if (
           position.x >= element.position.x &&
-          position.x <= element.position.x + textSize &&
+          position.x <= element.position.x + Math.max(textWidth, 50) && // 确保至少有最小点击区域
           position.y >= element.position.y &&
-          position.y <= element.position.y + textSize
+          position.y <= element.position.y + textHeight
         ) {
           return element;
         }
@@ -689,6 +743,22 @@
           class:uml-class={element.type === UmlElementType.CLASS}
           class:uml-interface={element.type === UmlElementType.INTERFACE}
           class:selected={selectedElement === element}
+          data-element-id={element.id}
+          on:mousedown={(e) => {
+            if (selectedTool === UmlElementType.Cursor || selectedTool === null) {
+              selectedElement = element;
+              const rect = canvas.getBoundingClientRect();
+              const position = {
+                x: e.clientX - rect.left,
+                y: e.clientY - rect.top
+              };
+              dragOffset = {
+                x: position.x - element.position.x,
+                y: position.y - element.position.y
+              };
+              e.stopPropagation();
+            }
+          }}
           style="
             left: {element.position.x}px;
             top: {element.position.y}px;
@@ -721,6 +791,22 @@
       {:else if isTextElement(element)}
         <div
           class="uml-text"
+          data-element-id={element.id}
+          on:mousedown={(e) => {
+            if (selectedTool === UmlElementType.Cursor || selectedTool === null) {
+              selectedElement = element;
+              const rect = canvas.getBoundingClientRect();
+              const position = {
+                x: e.clientX - rect.left,
+                y: e.clientY - rect.top
+              };
+              dragOffset = {
+                x: position.x - element.position.x,
+                y: position.y - element.position.y
+              };
+              e.stopPropagation();
+            }
+          }}
           style="
             left: {element.position.x}px;
             top: {element.position.y}px;
@@ -768,6 +854,11 @@
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     cursor: move; /* 添加移动光标提示 */
     user-select: none; /* 防止文本选择 */
+    transition: box-shadow 0.2s ease;
+  }
+
+  .uml-node:hover {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
   }
 
   .uml-class {
