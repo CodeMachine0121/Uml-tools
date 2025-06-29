@@ -1,6 +1,6 @@
 import  { v4 as uuidv4 } from 'uuid';
 import type { DiagramUseCases } from '@/domain/usecases/DiagramUseCases.ts';
-import type { UmlDiagram, MermaidExport } from '@/domain/entities/UmlDiagram.ts';
+import type { UmlDiagram, MermaidExport, CSharpExport } from '@/domain/entities/UmlDiagram.ts';
 import type { Position, Size, UmlElement, UmlArrow, UmlText } from '@/domain/entities/UmlElement.ts';
 import { UmlElementType } from '@/domain/entities/UmlElement.ts';
 import type { DiagramRepository } from '@/infrastructure/repositories/DiagramRepository.ts';
@@ -245,6 +245,126 @@ export class DiagramService implements DiagramUseCases {
           position: { x: 0, y: 0 },
           source: sourceElement.id,
           target: targetElement.id
+        } as UmlArrow);
+      }
+    }
+
+    return this.repository.save(newDiagram);
+  }
+
+  async exportToCSharp(diagramId: string): Promise<CSharpExport> {
+    const diagram = await this.repository.findById(diagramId);
+    if (!diagram) {
+      throw new Error(`Diagram with id ${diagramId} not found`);
+    }
+
+    // This is a simplified implementation
+    // A real implementation would convert the UML elements to C# code
+    let csharpCode = '';
+
+    // Process classes and interfaces
+    diagram.elements.forEach(element => {
+      if (element.type === UmlElementType.CLASS && element.text) {
+        csharpCode += `public class ${element.text}\n{\n    // Class properties and methods\n}\n\n`;
+      } else if (element.type === UmlElementType.INTERFACE && element.text) {
+        csharpCode += `public interface ${element.text}\n{\n    // Interface methods\n}\n\n`;
+      }
+    });
+
+    // Process relationships
+    diagram.elements.forEach(element => {
+      if ('source' in element && 'target' in element) {
+        const arrow = element as UmlArrow;
+        const source = diagram.elements.find(e => e.id === arrow.source);
+        const target = diagram.elements.find(e => e.id === arrow.target);
+
+        if (source?.text && target?.text) {
+          switch (arrow.type) {
+            case UmlElementType.INHERITANCE_ARROW:
+              // Add inheritance comment
+              csharpCode += `// ${source.text} inherits from ${target.text}\n`;
+              break;
+            case UmlElementType.IMPLEMENTATION_ARROW:
+              // Add implementation comment
+              csharpCode += `// ${source.text} implements ${target.text}\n`;
+              break;
+            case UmlElementType.DEPENDENCY_ARROW:
+              // Add dependency comment
+              csharpCode += `// ${source.text} depends on ${target.text}\n`;
+              break;
+            case UmlElementType.ASSOCIATION_ARROW:
+              // Add association comment
+              csharpCode += `// ${source.text} is associated with ${target.text}\n`;
+              break;
+          }
+        }
+      }
+    });
+
+    return { code: csharpCode };
+  }
+
+  async importFromCSharp(code: string): Promise<UmlDiagram> {
+    // This is a simplified implementation
+    // A real implementation would parse the C# code and create UML elements
+
+    const newDiagram: UmlDiagram = {
+      id: uuidv4(),
+      name: 'Imported C# Diagram',
+      elements: [],
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+
+    // Basic parsing of class definitions
+    const classRegex = /class\s+(\w+)/g;
+    let match;
+    let yPosition = 100;
+
+    while ((match = classRegex.exec(code)) !== null) {
+      const className = match[1];
+      newDiagram.elements.push({
+        id: uuidv4(),
+        type: UmlElementType.CLASS,
+        position: { x: 200, y: yPosition },
+        size: { width: 150, height: 100 },
+        text: className
+      });
+      yPosition += 150;
+    }
+
+    // Basic parsing of interface definitions
+    const interfaceRegex = /interface\s+(\w+)/g;
+
+    while ((match = interfaceRegex.exec(code)) !== null) {
+      const interfaceName = match[1];
+      newDiagram.elements.push({
+        id: uuidv4(),
+        type: UmlElementType.INTERFACE,
+        position: { x: 400, y: yPosition },
+        size: { width: 150, height: 100 },
+        text: interfaceName
+      });
+      yPosition += 150;
+    }
+
+    // Basic parsing of inheritance relationships
+    const inheritanceRegex = /class\s+(\w+)\s*:\s*(\w+)/g;
+
+    while ((match = inheritanceRegex.exec(code)) !== null) {
+      const childClass = match[1];
+      const parentClass = match[2];
+
+      const childElement = newDiagram.elements.find(e => e.text === childClass);
+      const parentElement = newDiagram.elements.find(e => e.text === parentClass);
+
+      if (childElement && parentElement) {
+        newDiagram.elements.push({
+          id: uuidv4(),
+          type: UmlElementType.INHERITANCE_ARROW,
+          position: { x: 0, y: 0 },
+          source: childElement.id,
+          target: parentElement.id
         } as UmlArrow);
       }
     }

@@ -11,3 +11,7 @@ export interface UmlDiagram {
 export interface MermaidExport {
   code: string;
 }
+
+export interface CSharpExport {
+  code: string;
+}
