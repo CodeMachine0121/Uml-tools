@@ -5,6 +5,7 @@
   export let position = { x: 0, y: 0 };
   export let initialText = '';
   export let placeholder = '输入文本';
+  export let title = '';
 
   const dispatch = createEventDispatcher<{
     submit: { text: string };
@@ -48,6 +49,9 @@
   use:handleMount
 >
   <form on:submit|preventDefault={handleSubmit}>
+    {#if title}
+      <h3 class="dialog-title">{title}</h3>
+    {/if}
     <input 
       bind:this={inputElement}
       bind:value={text}
@@ -76,6 +80,15 @@
   form {
     display: flex;
     flex-direction: column;
+  }
+
+  .dialog-title {
+    margin-top: 0;
+    margin-bottom: 10px;
+    font-size: 16px;
+    color: #333;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 8px;
   }
 
   input {

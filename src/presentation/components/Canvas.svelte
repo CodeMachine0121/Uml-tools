@@ -38,6 +38,103 @@
   let textInputPosition: Position = { x: 0, y: 0 };
   let textInputInitialValue = '';
   let textInputCallback: ((text: string) => void) | null = null;
+  let textInputTitle = '';
+
+  // 处理添加属性或方法
+  function handleAddProperty(event: MouseEvent, element: UmlElement, propertyType: 'attributes' | 'methods') {
+    event.stopPropagation();
+
+    const rect = canvas.getBoundingClientRect();
+    const buttonRect = (event.target as HTMLElement).getBoundingClientRect();
+
+    textInputPosition = {
+      x: buttonRect.left - rect.left,
+      y: buttonRect.bottom - rect.top
+    };
+
+    textInputInitialValue = '';
+    textInputTitle = propertyType === 'attributes' ? 'Add Attribute' : 'Add Method';
+
+    textInputCallback = (text) => {
+      if (!text.trim()) return;
+
+      const properties = element.properties || {};
+      const items = properties[propertyType] || [];
+
+      dispatch('elementUpdate', {
+        elementId: element.id,
+        updates: {
+          properties: {
+            ...properties,
+            [propertyType]: [...items, text]
+          }
+        }
+      });
+    };
+
+    showTextInput = true;
+  }
+
+  // 处理删除属性或方法
+  function handleDeleteProperty(event: MouseEvent, element: UmlElement, propertyType: 'attributes' | 'methods', index: number) {
+    event.stopPropagation();
+
+    const properties = element.properties || {};
+    const items = properties[propertyType] || [];
+
+    // 创建新数组，排除要删除的项
+    const updatedItems = items.filter((_, i) => i !== index);
+
+    dispatch('elementUpdate', {
+      elementId: element.id,
+      updates: {
+        properties: {
+          ...properties,
+          [propertyType]: updatedItems
+        }
+      }
+    });
+  }
+
+  // 处理更新属性或方法
+  function handleUpdateProperty(event: MouseEvent, element: UmlElement, propertyType: 'attributes' | 'methods', index: number) {
+    event.stopPropagation();
+
+    const properties = element.properties || {};
+    const items = properties[propertyType] || [];
+    const currentValue = items[index] || '';
+
+    const rect = canvas.getBoundingClientRect();
+    const buttonRect = (event.target as HTMLElement).getBoundingClientRect();
+
+    textInputPosition = {
+      x: buttonRect.left - rect.left,
+      y: buttonRect.bottom - rect.top
+    };
+
+    textInputInitialValue = currentValue;
+    textInputTitle = propertyType === 'attributes' ? 'Update Attribute' : 'Update Method';
+
+    textInputCallback = (text) => {
+      if (!text.trim()) return;
+
+      // 创建新数组，更新指定索引的项
+      const updatedItems = [...items];
+      updatedItems[index] = text;
+
+      dispatch('elementUpdate', {
+        elementId: element.id,
+        updates: {
+          properties: {
+            ...properties,
+            [propertyType]: updatedItems
+          }
+        }
+      });
+    };
+
+    showTextInput = true;
+  }
 
   // 框选相关状态
   let isSelecting = false;
@@ -942,10 +1039,34 @@
             <div class="node-name">{element.text || 'Unnamed'}</div>
           </div>
           <div class="node-attributes">
-            <!-- Attributes would go here -->
+            {#if element.properties && element.properties.attributes}
+              {#each element.properties.attributes as attribute, index}
+                <div class="attribute">
+                  {attribute}
+                  <div class="property-actions">
+                    <button class="update-button" on:click|stopPropagation={(e) => handleUpdateProperty(e, element, 'attributes', index)}>*</button>
+                    <button class="delete-button" on:click|stopPropagation={(e) => handleDeleteProperty(e, element, 'attributes', index)}>-</button>
+                  </div>
+                </div>
+              {/each}
+            {/if}
+            <br>
+            <button class="add-button" on:click|stopPropagation={(e) => handleAddProperty(e, element, 'attributes')}>+</button>
           </div>
           <div class="node-methods">
-            <!-- Methods would go here -->
+            {#if element.properties && element.properties.methods}
+              {#each element.properties.methods as method, index}
+                <div class="method">
+                  {method}
+                  <div class="property-actions">
+                    <button class="update-button" on:click|stopPropagation={(e) => handleUpdateProperty(e, element, 'methods', index)}>*</button>
+                    <button class="delete-button" on:click|stopPropagation={(e) => handleDeleteProperty(e, element, 'methods', index)}>-</button>
+                  </div>
+                </div>
+              {/each}
+            {/if}
+            <br>
+            <button class="add-button" on:click|stopPropagation={(e) => handleAddProperty(e, element, 'methods')}>+</button>
           </div>
 
           <!-- Connection points -->
@@ -993,6 +1114,7 @@
   <TextInputDialog
     position={textInputPosition}
     initialText={textInputInitialValue}
+    title={textInputTitle}
     on:submit={({ detail }) => {
       if (textInputCallback) textInputCallback(detail.text);
       showTextInput = false;
@@ -1073,10 +1195,78 @@
     padding: 8px;
     border-bottom: 1px solid #ddd;
     min-height: 20px;
+    position: relative;
   }
 
   .node-methods {
     border-bottom: none;
+  }
+
+  .attribute, .method {
+    font-size: 0.9em;
+    margin-bottom: 4px;
+    word-break: break-word;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .property-actions {
+    display: flex;
+    gap: 4px;
+    margin-left: 8px;
+  }
+
+  .update-button, .delete-button {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    color: white;
+    border: none;
+    font-size: 12px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+  }
+
+  .update-button {
+    background-color: #2196F3; /* Blue color for update */
+  }
+
+  .delete-button {
+    background-color: #F44336; /* Red color for delete */
+  }
+
+  .update-button:hover, .delete-button:hover {
+    opacity: 1;
+  }
+
+  .add-button {
+    position: absolute;
+    right: 8px;
+    bottom: 4px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+  }
+
+  .add-button:hover {
+    opacity: 1;
   }
 
   .uml-text {
