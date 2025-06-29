@@ -3,11 +3,11 @@
   import Toolbox from '../components/Toolbox.svelte';
   import Canvas from '../components/Canvas.svelte';
   import MermaidPanel from '../components/MermaidPanel.svelte';
-  import { DiagramService } from '../../application/services/DiagramService';
-  import { InMemoryDiagramRepository } from '../../infrastructure/repositories/DiagramRepository';
-  import { UmlElementType } from '../../domain/entities/UmlElement';
-  import type { UmlDiagram } from '../../domain/entities/UmlDiagram';
-  import type { UmlElement } from '../../domain/entities/UmlElement';
+  import { DiagramService } from '@/application/services/DiagramService.ts';
+  import { InMemoryDiagramRepository } from '@/infrastructure/repositories/DiagramRepository.ts';
+  import { UmlElementType } from '@/domain/entities/UmlElement.ts';
+  import type { UmlDiagram } from '@/domain/entities/UmlDiagram.ts';
+  import type { UmlElement } from '@/domain/entities/UmlElement.ts';
 
   // Initialize services
   const repository = new InMemoryDiagramRepository();

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import { UmlElementType } from '../../domain/entities/UmlElement';
+  import { UmlElementType } from '@/domain/entities/UmlElement.ts';
   
   const dispatch = createEventDispatcher<{
     // Send a custom event named select when a tool is selected

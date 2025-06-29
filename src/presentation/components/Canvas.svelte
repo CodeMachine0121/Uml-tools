@@ -1,6 +1,6 @@
 <script lang="ts">
   import {createEventDispatcher} from 'svelte';
-  import type {UmlDiagram} from '../../domain/entities/UmlDiagram';
+  import type {UmlDiagram} from '@/domain/entities/UmlDiagram.ts';
   import {
     type Position,
     type UmlArrow,
@@ -8,7 +8,7 @@
     UmlElementType,
     type UmlNode,
     type UmlText
-  } from '../../domain/entities/UmlElement';
+  } from '@/domain/entities/UmlElement.ts';
 
   export let diagram: UmlDiagram | undefined = undefined;
   export let selectedTool: UmlElementType | null = null;
