@@ -192,14 +192,14 @@ export class DiagramService implements DiagramUseCases {
 
         // Add attributes
         if (element.properties && element.properties.attributes && element.properties.attributes.length > 0) {
-          element.properties.attributes.forEach(attr => {
+          element.properties.attributes.forEach((attr: string) => {
             mermaidCode += `    ${attr}\n`;
           });
         }
 
         // Add methods
         if (element.properties && element.properties.methods && element.properties.methods.length > 0) {
-          element.properties.methods.forEach(method => {
+          element.properties.methods.forEach((method: string) => {
             mermaidCode += `    ${method}()\n`;
           });
         }
@@ -374,7 +374,7 @@ export class DiagramService implements DiagramUseCases {
 
         // Add attributes as properties
         if (element.properties && element.properties.attributes && element.properties.attributes.length > 0) {
-          element.properties.attributes.forEach(attr => {
+          element.properties.attributes.forEach((attr: string) => {
             // Simple conversion - in a real implementation, we would parse the attribute syntax
             csharpCode += `    public string ${attr} { get; set; }\n`;
           });
@@ -383,7 +383,7 @@ export class DiagramService implements DiagramUseCases {
 
         // Add methods
         if (element.properties && element.properties.methods && element.properties.methods.length > 0) {
-          element.properties.methods.forEach(method => {
+          element.properties.methods.forEach((method: string) => {
             // Simple conversion - in a real implementation, we would parse the method syntax
             csharpCode += `    public void ${method}()\n    {\n        // Method implementation\n    }\n`;
           });
@@ -395,7 +395,7 @@ export class DiagramService implements DiagramUseCases {
 
         // Add methods for interface
         if (element.properties && element.properties.methods && element.properties.methods.length > 0) {
-          element.properties.methods.forEach(method => {
+          element.properties.methods.forEach((method: string)=> {
             // Interfaces have method signatures without implementation
             csharpCode += `    void ${method}();\n`;
           });

@@ -36,3 +36,8 @@
 - Export to Mermaid/C# 需要連同屬性/成員/方法也考量進去
 - 使用者可以透過 cursor 來調整物件大小及位置
 - 使用者可以透過 cursor 來重新連結物件之間的關聯
+
+### 2025/06/30 Feature for saving with image
+- 使用者可以點擊 "Save as Image" 按鈕來將當前畫布保存為圖片
+- 保存的圖片應該能夠包含所有繪製的物件和連線
+- 保存的圖片格式應該為 PNG

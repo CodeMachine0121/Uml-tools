@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import html2canvas from 'html2canvas';
   import Toolbox from '../components/Toolbox.svelte';
   import Canvas from '../components/Canvas.svelte';
   import MermaidPanel from '../components/MermaidPanel.svelte';
@@ -112,6 +113,40 @@
     mermaidCode = '';
     showMermaidPanel = true;
   }
+
+  async function saveAsImage() {
+    if (!currentDiagram) return;
+
+    // Get the canvas element
+    const canvasElement = document.querySelector('.canvas-container .canvas') as HTMLElement;
+    if (!canvasElement) return;
+
+    try {
+      // Use html2canvas to convert the canvas to an image
+      const canvas = await html2canvas(canvasElement, {
+        backgroundColor: '#f5f5f5',
+        scale: 2, // Higher scale for better quality
+        logging: false,
+        useCORS: true
+      });
+
+      // Convert the canvas to a data URL
+      const dataUrl = canvas.toDataURL('image/png');
+
+      // Create a download link
+      const link = document.createElement('a');
+      link.download = `${currentDiagram.name || 'diagram'}.png`;
+      link.href = dataUrl;
+
+      // Trigger the download
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('Error saving image:', error);
+      alert('Failed to save image. Please try again.');
+    }
+  }
 </script>
 
 <div class="editor-container">
@@ -135,6 +170,7 @@
       <button class="import-button" on:click={openMermaidImport}>Import from Mermaid</button>
       <button on:click={exportToCSharp}>Export to C#</button>
       <button class="import-button" on:click={() => { csharpCode = ''; showCSharpPanel = true; }}>Import from C#</button>
+      <button class="save-image-button" on:click={saveAsImage}>Save as Image</button>
     </div>
 
     {#if showMermaidPanel}
@@ -203,5 +239,13 @@
 
   .import-button:hover {
     background-color: #0b7dda;
+  }
+
+  .save-image-button {
+    background-color: #9C27B0;
+  }
+
+  .save-image-button:hover {
+    background-color: #7B1FA2;
   }
 </style>
