@@ -16,6 +16,49 @@ export class DiagramService implements DiagramUseCases {
       createdAt: new Date(),
       updatedAt: new Date()
     };
+    // 解析属性和方法
+    const propertyRegex = /\s*(public|private|protected)\s+(\w+)\s+(\w+)\s*{\s*get;\s*set;\s*}/g;
+    const methodRegex = /\s*(public|private|protected)\s+(\w+)\s+(\w+)\s*\([^)]*\)/g;
+
+    // 为每个已添加的类添加属性和方法
+    newDiagram.elements.forEach(element => {
+      if (element.type === UmlElementType.CLASS || element.type === UmlElementType.INTERFACE) {
+        if (!element.properties) {
+          element.properties = { attributes: [], methods: [] };
+        }
+
+        // 查找此类或接口的代码块
+        const classRegex = new RegExp(`(class|interface)\\s+${element.text}[^{]*{([\\s\\S]*?)}`, 'g');
+        let classMatch;
+
+        while ((classMatch = classRegex.exec(code)) !== null) {
+          const classBody = classMatch[2];
+
+          // 查找属性
+          let propMatch;
+          while ((propMatch = propertyRegex.exec(classBody)) !== null) {
+            const visibility = propMatch[1].toLowerCase();
+            const type = propMatch[2];
+            const name = propMatch[3];
+            const visibilitySymbol = visibility === 'public' ? '+' : (visibility === 'private' ? '-' : '#');
+
+            element.properties.attributes.push(`${visibilitySymbol} ${name}: ${type}`);
+          }
+
+          // 查找方法
+          let methodMatch;
+          while ((methodMatch = methodRegex.exec(classBody)) !== null) {
+            const visibility = methodMatch[1].toLowerCase();
+            const returnType = methodMatch[2];
+            const name = methodMatch[3];
+            const visibilitySymbol = visibility === 'public' ? '+' : (visibility === 'private' ? '-' : '#');
+
+            element.properties.methods.push(`${visibilitySymbol} ${name}: ${returnType}`);
+          }
+        }
+      }
+    });
+
     return this.repository.save(newDiagram);
   };
 
@@ -139,10 +182,30 @@ export class DiagramService implements DiagramUseCases {
 
     // Process classes and interfaces
     diagram.elements.forEach(element => {
-      if (element.type === UmlElementType.CLASS && element.text) {
-        mermaidCode += `  class ${element.text}\n`;
-      } else if (element.type === UmlElementType.INTERFACE && element.text) {
-        mermaidCode += `  class ${element.text} {\n    <<interface>>\n  }\n`;
+      if ((element.type === UmlElementType.CLASS || element.type === UmlElementType.INTERFACE) && element.text) {
+        // Start class definition
+        if (element.type === UmlElementType.INTERFACE) {
+          mermaidCode += `  class ${element.text} {\n    <<interface>>\n`;
+        } else {
+          mermaidCode += `  class ${element.text} {\n`;
+        }
+
+        // Add attributes
+        if (element.properties && element.properties.attributes && element.properties.attributes.length > 0) {
+          element.properties.attributes.forEach(attr => {
+            mermaidCode += `    ${attr}\n`;
+          });
+        }
+
+        // Add methods
+        if (element.properties && element.properties.methods && element.properties.methods.length > 0) {
+          element.properties.methods.forEach(method => {
+            mermaidCode += `    ${method}()\n`;
+          });
+        }
+
+        // Close class definition
+        mermaidCode += `  }\n`;
       }
     });
 
@@ -262,16 +325,87 @@ export class DiagramService implements DiagramUseCases {
     // A real implementation would convert the UML elements to C# code
     let csharpCode = '';
 
-    // Process classes and interfaces
+    // 首先收集所有关系信息，以便在生成类时使用
+    const inheritanceMap = new Map();
+    const implementationMap = new Map();
+
     diagram.elements.forEach(element => {
-      if (element.type === UmlElementType.CLASS && element.text) {
-        csharpCode += `public class ${element.text}\n{\n    // Class properties and methods\n}\n\n`;
-      } else if (element.type === UmlElementType.INTERFACE && element.text) {
-        csharpCode += `public interface ${element.text}\n{\n    // Interface methods\n}\n\n`;
+      if ('source' in element && 'target' in element) {
+        const arrow = element as UmlArrow;
+        const source = diagram.elements.find(e => e.id === arrow.source);
+        const target = diagram.elements.find(e => e.id === arrow.target);
+
+        if (source?.text && target?.text) {
+          if (arrow.type === UmlElementType.INHERITANCE_ARROW) {
+            inheritanceMap.set(source.text, target.text);
+          } else if (arrow.type === UmlElementType.IMPLEMENTATION_ARROW) {
+            if (!implementationMap.has(source.text)) {
+              implementationMap.set(source.text, []);
+            }
+            implementationMap.get(source.text).push(target.text);
+          }
+        }
       }
     });
 
-    // Process relationships
+    // Process classes and interfaces
+    diagram.elements.forEach(element => {
+      if (element.type === UmlElementType.CLASS && element.text) {
+        let classDeclaration = `public class ${element.text}`;
+
+        // 添加继承关系
+        if (inheritanceMap.has(element.text)) {
+          classDeclaration += ` : ${inheritanceMap.get(element.text)}`;
+        }
+
+        // 添加实现接口
+        if (implementationMap.has(element.text)) {
+          const interfaces = implementationMap.get(element.text);
+          if (inheritanceMap.has(element.text)) {
+            // 如果已经有继承，则用逗号分隔
+            classDeclaration += `, ${interfaces.join(', ')}`;
+          } else {
+            // 如果没有继承，使用冒号
+            classDeclaration += ` : ${interfaces.join(', ')}`;
+          }
+        }
+
+        csharpCode += `${classDeclaration}\n{\n`;
+
+        // Add attributes as properties
+        if (element.properties && element.properties.attributes && element.properties.attributes.length > 0) {
+          element.properties.attributes.forEach(attr => {
+            // Simple conversion - in a real implementation, we would parse the attribute syntax
+            csharpCode += `    public string ${attr} { get; set; }\n`;
+          });
+          csharpCode += '\n';
+        }
+
+        // Add methods
+        if (element.properties && element.properties.methods && element.properties.methods.length > 0) {
+          element.properties.methods.forEach(method => {
+            // Simple conversion - in a real implementation, we would parse the method syntax
+            csharpCode += `    public void ${method}()\n    {\n        // Method implementation\n    }\n`;
+          });
+        }
+
+        csharpCode += `}\n\n`;
+      } else if (element.type === UmlElementType.INTERFACE && element.text) {
+        csharpCode += `public interface ${element.text}\n{\n`;
+
+        // Add methods for interface
+        if (element.properties && element.properties.methods && element.properties.methods.length > 0) {
+          element.properties.methods.forEach(method => {
+            // Interfaces have method signatures without implementation
+            csharpCode += `    void ${method}();\n`;
+          });
+        }
+
+        csharpCode += `}\n\n`;
+      }
+    });
+
+    // 由于已经在前面处理了继承和实现关系，这里主要处理依赖和关联关系
     diagram.elements.forEach(element => {
       if ('source' in element && 'target' in element) {
         const arrow = element as UmlArrow;
@@ -280,16 +414,8 @@ export class DiagramService implements DiagramUseCases {
 
         if (source?.text && target?.text) {
           switch (arrow.type) {
-            case UmlElementType.INHERITANCE_ARROW:
-              // Add inheritance comment
-              csharpCode += `// ${source.text} inherits from ${target.text}\n`;
-              break;
-            case UmlElementType.IMPLEMENTATION_ARROW:
-              // Add implementation comment
-              csharpCode += `// ${source.text} implements ${target.text}\n`;
-              break;
             case UmlElementType.DEPENDENCY_ARROW:
-              // Add dependency comment
+              // 添加依赖注释
               csharpCode += `// ${source.text} depends on ${target.text}\n`;
               break;
             case UmlElementType.ASSOCIATION_ARROW:
@@ -348,10 +474,10 @@ export class DiagramService implements DiagramUseCases {
       yPosition += 150;
     }
 
-    // Basic parsing of inheritance relationships
-    const inheritanceRegex = /class\s+(\w+)\s*:\s*(\w+)/g;
-
-    while ((match = inheritanceRegex.exec(code)) !== null) {
+    // 解析更复杂的继承和实现关系
+    // 处理类继承类 - class Child : Parent
+    const classInheritanceRegex = /class\s+(\w+)\s*:\s*(\w+)(?![<,])/g;
+    while ((match = classInheritanceRegex.exec(code)) !== null) {
       const childClass = match[1];
       const parentClass = match[2];
 
@@ -365,6 +491,26 @@ export class DiagramService implements DiagramUseCases {
           position: { x: 0, y: 0 },
           source: childElement.id,
           target: parentElement.id
+        } as UmlArrow);
+      }
+    }
+
+    // 处理类实现接口 - class Child : IParent 或 class Child : BaseClass, IParent
+    const implementationRegex = /class\s+(\w+)\s*:(?:[^{]+,)?\s*(I\w+)/g;
+    while ((match = implementationRegex.exec(code)) !== null) {
+      const childClass = match[1];
+      const interfaceName = match[2];
+
+      const childElement = newDiagram.elements.find(e => e.text === childClass);
+      const interfaceElement = newDiagram.elements.find(e => e.text === interfaceName);
+
+      if (childElement && interfaceElement) {
+        newDiagram.elements.push({
+          id: uuidv4(),
+          type: UmlElementType.IMPLEMENTATION_ARROW,
+          position: { x: 0, y: 0 },
+          source: childElement.id,
+          target: interfaceElement.id
         } as UmlArrow);
       }
     }
